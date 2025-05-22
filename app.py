@@ -2,6 +2,7 @@ import streamlit as st
 import mysql.connector
 import pandas as pd
 import matplotlib.pyplot as plt
+from PIL import Image  # Import PIL to open local images
 
 # --- Database Connection ---
 def get_connection():
@@ -45,7 +46,14 @@ def check_login(username, password):
 # --- Login UI ---
 def login_page():
     st.markdown("<h1 style='text-align:center;color:#4A90E2;'>Welcome to AI Inventory Manager</h1>", unsafe_allow_html=True)
-    st.image("https://images.unsplash.com/photo-1570129477492-45c003edd2be?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80", use_container_width=True)
+    
+    # Load local image (make sure the file is in your working directory)
+    try:
+        img = Image.open("OIP.jpeg")  # <-- Replace with your downloaded image filename
+        st.image(img, use_container_width=True)
+    except FileNotFoundError:
+        st.error("Local image 'warehouse.jpg' not found. Please place it in the same folder as this script.")
+
     username = st.text_input("Username", key="username")
     password = st.text_input("Password", type="password", key="password")
     if st.button("Login"):
