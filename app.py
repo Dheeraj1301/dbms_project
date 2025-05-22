@@ -1,152 +1,134 @@
 import streamlit as st
 import mysql.connector
-from datetime import datetime
+import pandas as pd
+import matplotlib.pyplot as plt
 
-# ----------------------- DB Connection -----------------------
+# --- Database Connection ---
 def get_connection():
     return mysql.connector.connect(
         host="localhost",
         user="root",
-        password="Geetha",  # Replace with your actual MySQL password
+        password="Geetha$2500",
         database="inventory_db"
     )
 
-# ----------------------- DB Functions -----------------------
+# --- Add Product ---
 def add_product(name, category, quantity, price, supplier):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO products (name, category, quantity, price, supplier)
-        VALUES (%s, %s, %s, %s, %s)
-    """, (name, category, quantity, price, supplier))
+    cursor.execute("INSERT INTO products (name, category, quantity, price, supplier) VALUES (%s, %s, %s, %s, %s)",
+                   (name, category, quantity, price, supplier))
     conn.commit()
     conn.close()
 
-def view_products():
+# --- View Products ---
+def get_all_products():
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM products")
-    data = cursor.fetchall()
+    df = pd.read_sql("SELECT * FROM products", conn)
     conn.close()
-    return data
+    return df
 
-def delete_product(product_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM products WHERE id=%s", (product_id,))
-    conn.commit()
-    conn.close()
-
-def update_product(product_id, name, category, quantity, price, supplier):
+# --- Update Product ---
+def update_product(id, name, category, quantity, price, supplier):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        UPDATE products
-        SET name=%s, category=%s, quantity=%s, price=%s, supplier=%s
-        WHERE id=%s
-    """, (name, category, quantity, price, supplier, product_id))
+        UPDATE products SET name=%s, category=%s, quantity=%s, price=%s, supplier=%s WHERE id=%s
+    """, (name, category, quantity, price, supplier, id))
     conn.commit()
     conn.close()
 
-# ----------------------- Login -----------------------
-def login(username, password):
-    return username == "admin" and password == "inventory123"
+# --- Authentication ---
+def check_login(username, password):
+    return username == "admin" and password == "Dheeraj2500$"
 
-# ----------------------- App Layout -----------------------
-def main_app():
-    st.title("🍽️ Inventory Management System")
-
-    menu = ["➕ Add Product", "📦 View Inventory", "✏️ Update Product", "🗑️ Delete Product"]
-    choice = st.sidebar.selectbox("Menu", menu)
-
-    food_emojis = {
-        "🍕 Pizza": "Pizza",
-        "🍔 Burger": "Burger",
-        "🍟 Fries": "Fries",
-        "🍩 Donut": "Donut",
-        "🥤 Soft Drink": "Soft Drink",
-        "🥗 Salad": "Salad"
-    }
-
-    if choice == "➕ Add Product":
-        st.subheader("➕ Add New Product")
-        name = st.selectbox("Product Name", list(food_emojis.keys()))
-        category = st.text_input("Category (e.g., Fast Food, Beverage)")
-        quantity = st.number_input("Quantity", min_value=0)
-        price = st.number_input("Price (₹)", min_value=0.0, format="%.2f")
-        supplier = st.text_input("Supplier Name")
-        
-        if st.button("Add Product"):
-            add_product(food_emojis[name], category, quantity, price, supplier)
-            st.success(f"{name} added to inventory!")
-
-    elif choice == "📦 View Inventory":
-        st.subheader("📋 Inventory List")
-        data = view_products()
-        if data:
-            for row in data:
-                st.write(f"🆔 **ID:** {row[0]} | 🍽️ **Name:** {row[1]} | 📁 **Category:** {row[2]} | 📦 **Qty:** {row[3]} | 💸 **Price:** ₹{row[4]} | 🚚 **Supplier:** {row[5]}")
-            st.success("Inventory displayed!")
-        else:
-            st.info("No products in inventory.")
-
-    elif choice == "✏️ Update Product":
-        st.subheader("✏️ Update Product")
-        data = view_products()
-        product_ids = [i[0] for i in data]
-        if not product_ids:
-            st.warning("No products available to update.")
-            return
-        selected_id = st.selectbox("Select Product ID", product_ids)
-
-        product = [i for i in data if i[0] == selected_id][0]
-
-        name = st.text_input("Product Name", value=product[1])
-        category = st.text_input("Category", value=product[2])
-        quantity = st.number_input("Quantity", min_value=0, value=product[3])
-        price = st.number_input("Price", min_value=0.0, format="%.2f", value=float(product[4]))
-        supplier = st.text_input("Supplier", value=product[5])
-        
-        if st.button("Update"):
-            update_product(selected_id, name, category, quantity, price, supplier)
-            st.success("Product updated!")
-
-    elif choice == "🗑️ Delete Product":
-        st.subheader("🗑️ Delete Product")
-        data = view_products()
-        product_ids = [i[0] for i in data]
-        if not product_ids:
-            st.warning("No products available to delete.")
-            return
-        selected_id = st.selectbox("Select Product ID", product_ids)
-        
-        if st.button("Delete"):
-            delete_product(selected_id)
-            st.success("Product deleted successfully!")
-
-# ----------------------- Login Page -----------------------
+# --- Login UI ---
 def login_page():
-    st.title("🔐 Login to Inventory System")
-    st.write("Please login with your credentials:")
-
-    with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        login_button = st.form_submit_button("Login")
-
-    if login_button:
-        if login(username, password):
-            st.success("Login successful!")
-            st.session_state["authenticated"] = True
-            st.experimental_rerun()
+    st.markdown("<h1 style='text-align:center;color:#4A90E2;'>Welcome to AI Inventory Manager</h1>", unsafe_allow_html=True)
+    st.image("https://images.unsplash.com/photo-1570129477492-45c003edd2be?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80", use_container_width=True)
+    username = st.text_input("Username", key="username")
+    password = st.text_input("Password", type="password", key="password")
+    if st.button("Login"):
+        if check_login(username, password):
+            st.session_state.logged_in = True
         else:
-            st.error("Invalid username or password.")
+            st.error("Invalid credentials")
 
-# ----------------------- Run App -----------------------
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
+# --- Dashboard ---
+def show_dashboard():
+    st.subheader("📊 Inventory Dashboard")
+    df = get_all_products()
+    
+    if df.empty:
+        st.warning("No data available.")
+        return
 
-if st.session_state["authenticated"]:
-    main_app()
-else:
-    login_page()
+    st.write("### Product Summary")
+    st.dataframe(df)
+
+    st.write("### Quantity by Category")
+    fig, ax = plt.subplots()
+    df.groupby("category")["quantity"].sum().plot(kind="bar", ax=ax, color="skyblue")
+    st.pyplot(fig)
+
+    st.write("### Stock Value by Supplier")
+    df["stock_value"] = df["quantity"] * df["price"]
+    fig2, ax2 = plt.subplots()
+    df.groupby("supplier")["stock_value"].sum().plot(kind="pie", ax=ax2, autopct='%1.1f%%', figsize=(5,5))
+    ax2.set_ylabel("")
+    st.pyplot(fig2)
+
+# --- Main App ---
+def main():
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+
+    if not st.session_state.logged_in:
+        login_page()
+    else:
+        st.sidebar.title("Inventory Menu")
+        choice = st.sidebar.selectbox("Select an Option", ["Add Product", "View Products", "Update Product", "Dashboard"])
+
+        if choice == "Add Product":
+            st.subheader("➕ Add New Product")
+            name = st.text_input("Product Name")
+            category = st.text_input("Category")
+            quantity = st.number_input("Quantity", min_value=0)
+            price = st.number_input("Price", min_value=0.0)
+            supplier = st.text_input("Supplier")
+
+            if st.button("Add Product"):
+                if name and category and supplier:
+                    add_product(name, category, quantity, price, supplier)
+                    st.success("Product added successfully!")
+                else:
+                    st.warning("Please fill in all the required fields.")
+
+        elif choice == "View Products":
+            st.subheader("📋 All Products")
+            df = get_all_products()
+            st.dataframe(df)
+
+        elif choice == "Update Product":
+            st.subheader("✏️ Update Existing Product")
+            df = get_all_products()
+            product_ids = df["id"].tolist()
+            selected_id = st.selectbox("Select Product ID", product_ids)
+
+            product = df[df["id"] == selected_id].iloc[0]
+            name = st.text_input("Product Name", product["name"])
+            category = st.text_input("Category", product["category"])
+            quantity = st.number_input("Quantity", min_value=0, value=product["quantity"])
+            price = st.number_input("Price", min_value=0.0, value=float(product["price"]))
+            supplier = st.text_input("Supplier", product["supplier"])
+
+            if st.button("Update Product"):
+                update_product(selected_id, name, category, quantity, price, supplier)
+                st.success("Product updated successfully!")
+
+        elif choice == "Dashboard":
+            show_dashboard()
+
+# --- Run App ---
+if __name__ == "__main__":
+    main()
