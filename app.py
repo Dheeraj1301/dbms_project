@@ -5,13 +5,10 @@ import plotly.express as px
 from PIL import Image
 import base64
 
-# ---------- Configuration ----------
-BACKGROUND_IMAGE_PATH = "inven.jpg"  # Place this image in your project folder
+BACKGROUND_IMAGE_PATH = "inven.jpg"  # Your local background image
 
-# ---------- Set Page Configuration ----------
 st.set_page_config(layout="wide", page_title="AI Inventory Manager", page_icon="📦")
 
-# ---------- Utility: Set Background ----------
 def set_background(image_path, apply_to_dashboard=False):
     with open(image_path, "rb") as image_file:
         encoded_image = base64.b64encode(image_file.read()).decode()
@@ -23,20 +20,27 @@ def set_background(image_path, apply_to_dashboard=False):
         background-size: cover;
         background-repeat: no-repeat;
         background-attachment: fixed;
+        font-size: 18px;
     }}
     .login-container {{
-        background: rgba(255, 255, 255, 0.7);
+        background: rgba(255, 255, 255, 0.75);
         padding: 2rem;
-        border-radius: 10px;
-        max-width: 500px;
+        border-radius: 15px;
+        max-width: 400px;
         margin: auto;
+    }}
+    input[type="text"], input[type="number"], input[type="password"] {{
+        width: 250px !important;
+        font-size: 18px !important;
+    }}
+    button[kind="primary"] {{
+        font-size: 18px !important;
     }}
     </style>
     """
     if apply_to_dashboard:
         st.markdown(style, unsafe_allow_html=True)
 
-# ---------- Database Connection ----------
 def get_connection():
     return mysql.connector.connect(
         host="localhost",
@@ -45,7 +49,6 @@ def get_connection():
         database="inventory_db"
     )
 
-# ---------- DB Methods ----------
 def add_product(name, category, quantity, price, supplier):
     conn = get_connection()
     cursor = conn.cursor()
@@ -79,11 +82,9 @@ def delete_product(id, password):
         return True
     return False
 
-# ---------- Authentication ----------
 def check_login(username, password):
     return username == "admin" and password == "Dheeraj2500$"
 
-# ---------- Login Page ----------
 def login_page():
     set_background(BACKGROUND_IMAGE_PATH, apply_to_dashboard=True)
     st.markdown("<h1 style='text-align:center; color:#fff;'>🔐 AI Inventory Manager</h1>", unsafe_allow_html=True)
@@ -102,7 +103,6 @@ def login_page():
             else:
                 st.error("Invalid credentials")
 
-# ---------- Dashboard Page ----------
 def show_dashboard():
     st.subheader("📊 Inventory Dashboard")
     df = get_all_products()
@@ -125,7 +125,6 @@ def show_dashboard():
     fig2 = px.pie(df, names="supplier", values="stock_value", title="Stock Value Distribution by Supplier")
     st.plotly_chart(fig2, use_container_width=True)
 
-# ---------- Main App ----------
 def main():
     if "logged_in" not in st.session_state:
         st.session_state.logged_in = False
@@ -137,7 +136,6 @@ def main():
         st.sidebar.title("Inventory Menu")
         choice = st.sidebar.radio("Choose Action", ["➕ Add Product", "📋 View Products", "✏️ Update Product", "❌ Delete Product", "📊 Dashboard", "🔓 Logout"])
 
-        # Apply background only for non-dashboard pages
         if choice not in ["📊 Dashboard"]:
             set_background(BACKGROUND_IMAGE_PATH, apply_to_dashboard=True)
 
@@ -204,6 +202,5 @@ def main():
             st.session_state.logged_in = False
             st.rerun()
 
-# ---------- Run App ----------
 if __name__ == "__main__":
     main()
