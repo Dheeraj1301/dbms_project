@@ -101,26 +101,38 @@ def check_login(username, password):
 
 # --- Login Page ---
 def login_page():
-    set_background("background.jpg")
+    set_background("background.jpg")  # Optional: your background image
+
     st.markdown("<h1 style='text-align:center;color:#1F77B4;'>AI Inventory Manager</h1>", unsafe_allow_html=True)
     st.markdown('<div class="login-box">', unsafe_allow_html=True)
-    username = st.text_input("Username")
-    
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        password = st.text_input("Password", type="password", key="password_input")
-    with col2:
-        if st.button("Show"):
-            st.session_state["show_password"] = not st.session_state.get("show_password", False)
 
-    if st.session_state.get("show_password", False):
-        password = st.text_input("Password (visible)", value=password, type="default", key="password_visible")
+    username = st.text_input("Username")
+
+    # Initialize session state for toggling password visibility
+    if "show_password" not in st.session_state:
+        st.session_state.show_password = False
+
+    col1, col2 = st.columns([5, 1])
+
+    with col1:
+        password = st.text_input(
+            "Password",
+            type="default" if st.session_state.show_password else "password",
+            key="password_input"
+        )
+
+    with col2:
+        toggle_label = "🙈" if st.session_state.show_password else "👁️"
+        if st.button(toggle_label, key="toggle_password"):
+            st.session_state.show_password = not st.session_state.show_password
 
     if st.button("Login"):
         if check_login(username, password):
             st.session_state.logged_in = True
+            st.experimental_rerun()
         else:
             st.error("Invalid credentials")
+
     st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Dashboard Page ---
