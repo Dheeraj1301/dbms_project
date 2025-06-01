@@ -1,61 +1,10 @@
-import streamlit as st
+import gradio as gr
 import mysql.connector
 import pandas as pd
 import plotly.express as px
-import base64
+import base64  # for base64 encoding
 
-# --- Background Image Function ---
-def set_background(image_file):
-    with open(image_file, "rb") as image:
-        encoded = base64.b64encode(image.read()).decode()
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{
-            background-image: url("data:image/jpg;base64,{encoded}");
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-# --- Custom CSS ---
-st.markdown("""
-    <style>
-    h1, h2, h3, h4, h5, h6, label, p {
-        font-size: 20px !important;
-        font-weight: 600;
-    }
-    .stTextInput>div>div>input {
-        width: 250px !important;
-        font-size: 16px !important;
-    }
-    .stNumberInput>div>div>input {
-        width: 120px !important;
-        font-size: 16px !important;
-    }
-    .stButton>button {
-        font-size: 18px !important;
-        padding: 0.4em 2em;
-        background-color: #1f77b4;
-        color: white;
-        border-radius: 8px;
-    }
-    .login-box {
-        background: rgba(255, 255, 255, 0.8);
-        padding: 40px;
-        border-radius: 10px;
-        max-width: 400px;
-        margin: auto;
-        box-shadow: 0 0 15px rgba(0,0,0,0.2);
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- DB Connection ---
+# ---------- DB Connection ----------
 def get_connection():
     return mysql.connector.connect(
         host="localhost",
@@ -64,176 +13,250 @@ def get_connection():
         database="inventory_db"
     )
 
-# --- DB Methods ---
-def add_product(name, category, quantity, price, supplier):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO products (name, category, quantity, price, supplier) VALUES (%s, %s, %s, %s, %s)",
-                   (name, category, quantity, price, supplier))
-    conn.commit()
-    conn.close()
-
+# ---------- DB Functions ----------
 def get_all_products():
     conn = get_connection()
     df = pd.read_sql("SELECT * FROM products", conn)
     conn.close()
     return df
 
+def add_product(name, category, quantity, price, supplier):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO products (name, category, quantity, price, supplier)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (name, category, quantity, price, supplier))
+    conn.commit()
+    conn.close()
+    return "✅ Product added."
+
 def update_product(id, name, category, quantity, price, supplier):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        UPDATE products SET name=%s, category=%s, quantity=%s, price=%s, supplier=%s WHERE id=%s
+        UPDATE products SET name=%s, category=%s, quantity=%s, price=%s, supplier=%s
+        WHERE id=%s
     """, (name, category, quantity, price, supplier, id))
     conn.commit()
     conn.close()
+    return "✅ Product updated."
 
-def delete_product(id):
+def delete_product(id, password):
+    if password != "Dheeraj2500$":
+        return "❌ Incorrect password"
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM products WHERE id=%s", (id,))
+    cursor.execute("DELETE FROM products WHERE id = %s", (id,))
     conn.commit()
     conn.close()
+    return "✅ Product deleted"
 
-# --- Auth ---
-def check_login(username, password):
-    return username == "admin" and password == "Dheeraj2500$"
-
-# --- Login Page ---
-import streamlit as st
-
-# Initialize session states
-if "show_password" not in st.session_state:
-    st.session_state.show_password = False
-
-def login_page():
-    st.markdown(
-        "<h1 style='text-align:center; color:#1F77B4;'>AI Inventory Manager</h1>",
-        unsafe_allow_html=True
-    )
-    st.markdown("<div style='background-color: rgba(255,255,255,0.7); padding: 20px; border-radius: 10px;'>", unsafe_allow_html=True)
-
-    # Username input
-    username = st.text_input("Username", key="username_input", label_visibility="visible")
-
-    # Password input and custom toggle
-    col1, col2 = st.columns([5, 1])
-    with col1:
-        password = st.text_input(
-            "Password",
-            type="default" if st.session_state.show_password else "password",
-            key="custom_password_input"
-        )
-    with col2:
-        toggle_icon = "🙈" if st.session_state.show_password else "👁️"
-        if st.button(toggle_icon, key="toggle_password_button"):
-            st.session_state.show_password = not st.session_state.show_password
-
-    # Login button
-    if st.button("Login", key="login_button"):
-        if username == "admin" and password == "1234":
-            st.success("Login successful!")
-            st.session_state.logged_in = True
-            st.experimental_rerun()
-        else:
-            st.error("Invalid credentials!")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# --- Dashboard Page ---
-def show_dashboard():
-    st.subheader("📊 Inventory Dashboard")
+def dashboard():
     df = get_all_products()
-
     if df.empty:
-        st.warning("No data available.")
-        return
-
-    st.write("### Product Summary")
-    st.dataframe(df)
-
-    st.write("### Quantity by Category")
+        return "No data to display", None, None
+    
     fig1 = px.bar(df.groupby("category")["quantity"].sum().reset_index(),
                   x="category", y="quantity", color="category",
                   title="Total Quantity per Category")
-    st.plotly_chart(fig1, use_container_width=True)
-
-    st.write("### Stock Value by Supplier")
+    
     df["stock_value"] = df["quantity"] * df["price"]
-    fig2 = px.pie(df, names="supplier", values="stock_value", title="Stock Value Distribution by Supplier")
-    st.plotly_chart(fig2, use_container_width=True)
+    fig2 = px.pie(df, names="supplier", values="stock_value",
+                  title="Stock Value by Supplier")
+    
+    return df, fig1, fig2
 
-# --- Main App ---
-def main():
-    if "logged_in" not in st.session_state:
-        st.session_state.logged_in = False
+# ---------- Load your local images and convert to base64 ----------
+def get_base64_image(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
 
-    if not st.session_state.logged_in:
-        login_page()
+# Replace these filenames with your actual image filenames
+img_base64_login = get_base64_image("inven.jpg")
+img_base64_main = get_base64_image("inven1.jpg")
+
+# ---------- Custom CSS for login page ----------
+custom_css_login = f"""
+<style>
+    /* Login Page Background */
+    #login-page {{
+        background-image: url("data:image/jpg;base64,{img_base64_login}");
+        background-size: cover;
+        background-attachment: fixed;
+        color: white;
+        padding: 40px;
+        border-radius: 15px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }}
+    #login-page h2 {{
+        color: #ffdd57;
+        text-shadow: 1px 1px 3px #000;
+    }}
+    #login-page .gr-button {{
+        background-color: #ff6f61 !important;
+        border: none !important;
+        color: white !important;
+        font-weight: bold !important;
+        box-shadow: 0 4px 10px rgba(255, 111, 97, 0.6);
+        transition: background-color 0.3s ease;
+    }}
+    #login-page .gr-button:hover {{
+        background-color: #ff3b2e !important;
+        box-shadow: 0 6px 15px rgba(255, 59, 46, 0.8);
+    }}
+    #login-page .gr-textbox input {{
+        color: white;
+        background: rgba(255,255,255,0.15);
+        border-radius: 8px;
+        border: 1px solid #ff6f61;
+        padding: 6px;
+        outline: none;
+    }}
+</style>
+"""
+
+# ---------- Custom CSS for main app page ----------
+custom_css_main = f"""
+<style>
+    /* Main App Background */
+    #main-app {{
+        background-image: url("data:image/jpg;base64,{img_base64_main}");
+        background-size: cover;
+        background-attachment: fixed;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: white;
+        padding: 30px;
+        border-radius: 15px;
+        max-width: 900px;
+        margin: auto;
+        box-shadow: 0 0 15px rgba(0,0,0,0.7);
+    }}
+    #main-app h1, #main-app h2, #main-app h3, #main-app h4 {{
+        color: #ffdd57;
+        text-shadow: 1px 1px 3px #000;
+    }}
+    #main-app .gr-button {{
+        background-color: #ff6f61 !important;
+        border: none !important;
+        color: white !important;
+        font-weight: bold !important;
+        box-shadow: 0 4px 10px rgba(255, 111, 97, 0.6);
+        transition: background-color 0.3s ease;
+    }}
+    #main-app .gr-button:hover {{
+        background-color: #ff3b2e !important;
+        box-shadow: 0 6px 15px rgba(255, 59, 46, 0.8);
+    }}
+    #main-app .gr-textbox, #main-app .gr-number {{
+        background-color: rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        color: white;
+        border: 1px solid #ff6f61;
+    }}
+    #main-app .gr-textbox input, #main-app .gr-number input {{
+        color: white;
+        background: transparent;
+        border: none;
+        outline: none;
+    }}
+    #main-app .gr-dataframe {{
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        background-color: rgba(0,0,0,0.5);
+        color: white;
+    }}
+    #main-app .gr-plot {{
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        background-color: rgba(0,0,0,0.5);
+    }}
+</style>
+"""
+
+# ---------- Login logic ----------
+def verify_login(username, password):
+    if username == "admin" and password == "Dheeraj2500$":
+        return True, ""
     else:
-        st.sidebar.title("📦 Inventory Menu")
-        choice = st.sidebar.radio("Choose Action", ["➕ Add Product", "📋 View Products", "✏️ Update Product", "🗑️ Delete Product", "📊 Dashboard", "🚪 Logout"])
+        return False, "❌ Incorrect username or password"
 
-        if choice != "📊 Dashboard":
-            set_background("background.jpg")  # Background for all except Dashboard
+# ---------- Gradio UI ----------
+with gr.Blocks(title="AI Inventory Manager") as demo:
+    # Inject CSS for both pages
+    gr.HTML(custom_css_login)
+    gr.HTML(custom_css_main)
 
-        if choice == "➕ Add Product":
-            st.subheader("➕ Add New Product")
-            name = st.text_input("Product Name")
-            category = st.text_input("Category")
-            quantity = st.number_input("Quantity", min_value=0)
-            price = st.number_input("Price", min_value=0.0)
-            supplier = st.text_input("Supplier")
+    # Use State to keep track of login
+    login_state = gr.State(False)
 
-            if st.button("Add Product"):
-                if name and category and supplier:
-                    add_product(name, category, quantity, price, supplier)
-                    st.success("✅ Product added successfully!")
-                else:
-                    st.warning("Please fill in all the required fields.")
+    # Assign IDs to columns for CSS scoping
+    with gr.Column(visible=True, elem_id="login-page") as login_page:
+        gr.Markdown("## 🔐 Login")
+        username = gr.Textbox(label="Username")
+        password = gr.Textbox(label="Password", type="password")
+        login_button = gr.Button("Login")
+        login_msg = gr.Textbox(label="Status", interactive=False)
 
-        elif choice == "📋 View Products":
-            st.subheader("📋 All Products")
-            df = get_all_products()
-            st.dataframe(df)
+    with gr.Column(visible=False, elem_id="main-app") as main_app:
+        gr.Markdown("# 📦 AI Inventory Manager")
 
-        elif choice == "✏️ Update Product":
-            st.subheader("✏️ Update Existing Product")
-            df = get_all_products()
-            product_ids = df["id"].tolist()
-            selected_id = st.selectbox("Select Product ID", product_ids)
+        with gr.Tabs():
+            with gr.Tab("➕ Add Product"):
+                with gr.Row():
+                    name = gr.Textbox(label="Product Name")
+                    category = gr.Textbox(label="Category")
+                    quantity = gr.Number(label="Quantity", value=0)
+                    price = gr.Number(label="Price", value=0.0)
+                    supplier = gr.Textbox(label="Supplier")
+                    submit = gr.Button("Add Product")
+                output = gr.Textbox(label="Status", interactive=False)
+                submit.click(add_product, inputs=[name, category, quantity, price, supplier], outputs=output)
 
-            product = df[df["id"] == selected_id].iloc[0]
-            name = st.text_input("Product Name", product["name"])
-            category = st.text_input("Category", product["category"])
-            quantity = st.number_input("Quantity", min_value=0, value=product["quantity"])
-            price = st.number_input("Price", min_value=0.0, value=float(product["price"]))
-            supplier = st.text_input("Supplier", product["supplier"])
+            with gr.Tab("✏️ Update Product"):
+                with gr.Row():
+                    id_u = gr.Number(label="Product ID")
+                    name_u = gr.Textbox(label="New Name")
+                    category_u = gr.Textbox(label="New Category")
+                    quantity_u = gr.Number(label="New Quantity")
+                    price_u = gr.Number(label="New Price")
+                    supplier_u = gr.Textbox(label="New Supplier")
+                    update_btn = gr.Button("Update Product")
+                update_out = gr.Textbox(label="Status", interactive=False)
+                update_btn.click(update_product, inputs=[id_u, name_u, category_u, quantity_u, price_u, supplier_u], outputs=update_out)
 
-            if st.button("Update Product"):
-                update_product(selected_id, name, category, quantity, price, supplier)
-                st.success("✅ Product updated successfully!")
+            with gr.Tab("❌ Delete Product"):
+                delete_id = gr.Number(label="Product ID")
+                delete_pass = gr.Textbox(label="Admin Password", type="password")
+                delete_btn = gr.Button("Delete Product")
+                delete_out = gr.Textbox(label="Status", interactive=False)
+                delete_btn.click(delete_product, inputs=[delete_id, delete_pass], outputs=delete_out)
 
-        elif choice == "🗑️ Delete Product":
-            st.subheader("🗑️ Delete Product (Password Protected)")
-            delete_pass = st.text_input("Enter Delete Password", type="password")
-            if delete_pass == "DeleteSecure123$":
-                df = get_all_products()
-                product_ids = df["id"].tolist()
-                selected_id = st.selectbox("Select Product ID to Delete", product_ids)
-                if st.button("Confirm Delete"):
-                    delete_product(selected_id)
-                    st.success("🗑️ Product deleted successfully!")
-            elif delete_pass != "":
-                st.error("❌ Incorrect password!")
+            with gr.Tab("📋 View Products"):
+                view_btn = gr.Button("Refresh Table")
+                table = gr.Dataframe()
+                view_btn.click(get_all_products, outputs=table)
 
-        elif choice == "📊 Dashboard":
-            show_dashboard()
+            with gr.Tab("📊 Dashboard"):
+                dash_btn = gr.Button("Show Dashboard")
+                table_dash = gr.Dataframe()
+                chart1 = gr.Plot()
+                chart2 = gr.Plot()
+                dash_btn.click(dashboard, outputs=[table_dash, chart1, chart2])
 
-        elif choice == "🚪 Logout":
-            st.session_state.logged_in = False
-            st.experimental_rerun()
+    # Login button click action
+    def on_login_click(username, password):
+        success, msg = verify_login(username, password)
+        if success:
+            return gr.update(visible=False), gr.update(visible=True), ""
+        else:
+            return gr.update(visible=True), gr.update(visible=False), msg
 
-# --- Run App ---
-if __name__ == "__main__":
-    main()
+    login_button.click(
+        on_login_click, 
+        inputs=[username, password], 
+        outputs=[login_page, main_app, login_msg]
+    )
+
+demo.launch()
