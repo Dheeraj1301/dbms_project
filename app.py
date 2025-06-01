@@ -100,40 +100,45 @@ def check_login(username, password):
     return username == "admin" and password == "Dheeraj2500$"
 
 # --- Login Page ---
+import streamlit as st
+
+# Initialize session states
+if "show_password" not in st.session_state:
+    st.session_state.show_password = False
+
 def login_page():
-    set_background("background.jpg")  # Optional: your background image
+    st.markdown(
+        "<h1 style='text-align:center; color:#1F77B4;'>AI Inventory Manager</h1>",
+        unsafe_allow_html=True
+    )
+    st.markdown("<div style='background-color: rgba(255,255,255,0.7); padding: 20px; border-radius: 10px;'>", unsafe_allow_html=True)
 
-    st.markdown("<h1 style='text-align:center;color:#1F77B4;'>AI Inventory Manager</h1>", unsafe_allow_html=True)
-    st.markdown('<div class="login-box">', unsafe_allow_html=True)
+    # Username input
+    username = st.text_input("Username", key="username_input", label_visibility="visible")
 
-    username = st.text_input("Username")
-
-    # Initialize session state for toggling password visibility
-    if "show_password" not in st.session_state:
-        st.session_state.show_password = False
-
+    # Password input and custom toggle
     col1, col2 = st.columns([5, 1])
-
     with col1:
         password = st.text_input(
             "Password",
             type="default" if st.session_state.show_password else "password",
-            key="password_input"
+            key="custom_password_input"
         )
-
     with col2:
-        toggle_label = "🙈" if st.session_state.show_password else "👁️"
-        if st.button(toggle_label, key="toggle_password"):
+        toggle_icon = "🙈" if st.session_state.show_password else "👁️"
+        if st.button(toggle_icon, key="toggle_password_button"):
             st.session_state.show_password = not st.session_state.show_password
 
-    if st.button("Login"):
-        if check_login(username, password):
+    # Login button
+    if st.button("Login", key="login_button"):
+        if username == "admin" and password == "1234":
+            st.success("Login successful!")
             st.session_state.logged_in = True
             st.experimental_rerun()
         else:
-            st.error("Invalid credentials")
+            st.error("Invalid credentials!")
 
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # --- Dashboard Page ---
 def show_dashboard():
