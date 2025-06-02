@@ -5,6 +5,7 @@ import plotly.express as px
 import base64  # for base64 encoding
 
 # ---------- DB Connection ----------
+
 def get_connection():
     return mysql.connector.connect(
         host="localhost",
@@ -14,33 +15,43 @@ def get_connection():
     )
 
 # ---------- DB Functions ----------
+
 def get_all_products():
     conn = get_connection()
     df = pd.read_sql("SELECT * FROM products", conn)
     conn.close()
     return df
 
+
 def add_product(name, category, quantity, price, supplier):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO products (name, category, quantity, price, supplier)
         VALUES (%s, %s, %s, %s, %s)
-    """, (name, category, quantity, price, supplier))
+        """,
+        (name, category, quantity, price, supplier)
+    )
     conn.commit()
     conn.close()
     return "✅ Product added."
 
+
 def update_product(id, name, category, quantity, price, supplier):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""
+    cursor.execute(
+        """
         UPDATE products SET name=%s, category=%s, quantity=%s, price=%s, supplier=%s
         WHERE id=%s
-    """, (name, category, quantity, price, supplier, id))
+        """,
+        (name, category, quantity, price, supplier, id)
+    )
     conn.commit()
     conn.close()
     return "✅ Product updated."
+
 
 def delete_product(id, password):
     if password != "Dheeraj2500$":
@@ -52,29 +63,43 @@ def delete_product(id, password):
     conn.close()
     return "✅ Product deleted"
 
+
 def dashboard():
     df = get_all_products()
     if df.empty:
         return "No data to display", None, None
-    
-    fig1 = px.bar(df.groupby("category")["quantity"].sum().reset_index(),
-                  x="category", y="quantity", color="category",
-                  title="Total Quantity per Category")
-    
+
+    fig1 = px.bar(
+        df.groupby("category")["quantity"].sum().reset_index(),
+        x="category",
+        y="quantity",
+        color="category",
+        title="Total Quantity per Category",
+    )
+
     df["stock_value"] = df["quantity"] * df["price"]
-    fig2 = px.pie(df, names="supplier", values="stock_value",
-                  title="Stock Value by Supplier")
-    
+    fig2 = px.pie(
+        df,
+        names="supplier",
+        values="stock_value",
+        title="Stock Value by Supplier",
+    )
+
     return df, fig1, fig2
 
-# ---------- Load your local images and convert to base64 ----------
-def get_base64_image(image_path):
-    with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode()
 
-# Replace these filenames with your actual image filenames
-img_base64_login = get_base64_image("inven.jpg")
-img_base64_main = get_base64_image("inven1.jpg")
+# ---------- Helpers to load local assets ----------
+
+def get_base64_file(file_path):
+    """Return the base64-encoded contents of any binary file."""
+    with open(file_path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+
+# Replace these filenames with your actual asset filenames
+img_base64_login = get_base64_file("inven.jpg")
+img_base64_main = get_base64_file("inven1.jpg")
+audio_base64_success = get_base64_file("login_success.mp3")  # <-- Put your audio file here
 
 # ---------- Custom CSS for login page ----------
 custom_css_login = f"""
@@ -176,6 +201,7 @@ custom_css_main = f"""
 """
 
 # ---------- Login logic ----------
+
 def verify_login(username, password):
     if username == "admin" and password == "Dheeraj2500$":
         return True, ""
@@ -183,6 +209,7 @@ def verify_login(username, password):
         return False, "❌ Incorrect username or password"
 
 # ---------- Gradio UI ----------
+
 with gr.Blocks(title="AI Inventory Manager") as demo:
     # Inject CSS for both pages
     gr.HTML(custom_css_login)
@@ -198,6 +225,9 @@ with gr.Blocks(title="AI Inventory Manager") as demo:
         password = gr.Textbox(label="Password", type="password")
         login_button = gr.Button("Login")
         login_msg = gr.Textbox(label="Status", interactive=False)
+
+    # Hidden HTML element that will play the success audio
+    success_audio_html = gr.HTML("", visible=False)
 
     with gr.Column(visible=False, elem_id="main-app") as main_app:
         gr.Markdown("# 📦 AI Inventory Manager")
@@ -249,14 +279,32 @@ with gr.Blocks(title="AI Inventory Manager") as demo:
     def on_login_click(username, password):
         success, msg = verify_login(username, password)
         if success:
-            return gr.update(visible=False), gr.update(visible=True), ""
+            audio_tag = (
+                f'<audio autoplay="true" style="display:none;">'
+                f'<source src="data:audio/mp3;base64,{audio_base64_success}" type="audio/mp3" />'
+                "Your browser does not support the audio element."
+                "</audio>"
+            )
+            return (
+                gr.update(visible=False),  # Hide login page
+                gr.update(visible=True),   # Show main app
+                "",                        # Clear status message
+                gr.update(value=audio_tag, visible=True),  # Inject and play audio
+            )
         else:
-            return gr.update(visible=True), gr.update(visible=False), msg
+            return (
+                gr.update(visible=True),   # Keep login page
+                gr.update(visible=False),  # Hide main app (in case it was visible)
+                msg,                       # Show error message
+                gr.update(value="", visible=False),  # Ensure no audio plays on failure
+            )
 
     login_button.click(
-        on_login_click, 
-        inputs=[username, password], 
-        outputs=[login_page, main_app, login_msg]
+        on_login_click,
+        inputs=[username, password],
+        outputs=[login_page, main_app, login_msg, success_audio_html],
     )
+
+# ---------- Launch the demo ----------
 
 demo.launch()
